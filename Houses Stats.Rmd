@@ -1,0 +1,40 @@
+---
+title: "Houses Summary Stat"
+author: "Jannis Dietze"
+date: "2025-05-09"
+output: pdf_document
+---
+
+
+
+```{r load data}
+knitr::opts_chunk$set(echo = TRUE)
+library(sf)
+library(dplyr)
+library(stargazer)
+
+# Load spatial data
+DD_houses_rentals <- read_sf("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/Housing prices shp/DDMH_STVSCHdaynight_25833.shp", stringsAsFactors = FALSE)
+
+# Drop geometry to avoid issues with stargazer
+DD_df <- DD_houses_rentals %>% st_drop_geometry()
+
+# Convert all numeric-like characters to numbers (if needed)
+DD_df <- DD_df %>%
+  mutate(across(everything(), ~ ifelse(is.character(.), as.numeric(gsub(",", ".", .)), .)))
+
+# Select only numeric columns
+numeric_vars <- DD_df %>% select(where(is.numeric))
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r table}
+stargazer(numeric_vars, type = "latex", title = "Summary Statistics of Numeric Variables", digits = 2)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
