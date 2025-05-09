@@ -1,0 +1,71 @@
+---
+title: "Summary Statistics"
+author: "Jannis Dietze"
+date: "2025-05-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(readr)
+library(sf)
+library(tidyr)
+library(skimr)
+library(stargazer)
+library(tinytex)
+tinytex::is_tinytex()
+```
+
+## Data loading and cleaning
+
+```{r data loading and cleaning}
+
+DD_houses_rentals <- read_sf("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/Housing prices shp/DDMH_STVSCHdaynight_25833.shp", stringsAsFactors = FALSE)
+
+
+DD_apartments_rentals <- read_sf("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/Housing prices shp/DDMW_STVSCHdaynight_25833_korr.shp", stringsAsFactors = FALSE)
+
+DD_apartments_rentals <- DD_apartments_rentals %>%
+  drop_na(Kaltmiete)
+#Include Kaltmiete clean as numeric vector (215.5 instead of German 215,5)
+str(DD_apartments_rentals$Kaltmiete)
+DD_apartments_rentals$Kaltmiete_clean <- as.numeric(gsub(",", ".", DD_apartments_rentals$Kaltmiete))
+str(DD_apartments_rentals$Kaltmiete_clean)
+#remove outliers
+DD_apartments_rentals <- DD_apartments_rentals %>%
+  filter(Kaltmiete_clean > 100, Kaltmiete_clean < 3000)
+
+sample_dd <- head(DD_apartments_rentals, 20)
+print(sample_dd)
+
+```
+
+## Summary Stat Table
+```{r stat table, results='asis'}
+str(DD_apartments_rentals)
+DD_apartments_rentals_numeric <- DD_apartments_rentals[ , sapply(DD_apartments_rentals, is.numeric)]
+str(DD_apartments_rentals_numeric)
+
+stargazer(DD_apartments_rentals_numeric,
+          type   = "latex",
+          title  = "Apartment rent and characteristics",
+          digits = 3,
+          summary.stat = c("n", "mean", "sd", "min", "max"))
+```
+
+
+
+```{r, results='asis'}
+
+houses_clean <- DD_houses_rentals %>%
+  mutate(across(where(is.character), ~ as.numeric(gsub(",", ".", .))))
+
+houses_numeric <- select_if(houses_clean, is.numeric)
+
+
+stargazer(houses_numeric, type = "latex", title = "Summary Statistics", digits = 2)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
