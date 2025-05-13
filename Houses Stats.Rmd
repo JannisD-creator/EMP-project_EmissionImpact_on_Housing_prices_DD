@@ -8,32 +8,68 @@ output: pdf_document
 
 
 ```{r load data}
-knitr::opts_chunk$set(echo = TRUE)
-library(sf)
-library(dplyr)
-library(stargazer)
 
-# Load spatial data
-DD_houses_rentals <- read_sf("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/Housing prices shp/DDMH_STVSCHdaynight_25833.shp", stringsAsFactors = FALSE)
-
-# Drop geometry to avoid issues with stargazer
-DD_df <- DD_houses_rentals %>% st_drop_geometry()
-
-# Convert all numeric-like characters to numbers (if needed)
-DD_df <- DD_df %>%
-  mutate(across(everything(), ~ ifelse(is.character(.), as.numeric(gsub(",", ".", .)), .)))
-
-# Select only numeric columns
-numeric_vars <- DD_df %>% select(where(is.numeric))
 
 ```
 
 ## Including Plots
 
-You can also embed plots, for example:
+
 
 ```{r table}
-stargazer(numeric_vars, type = "latex", title = "Summary Statistics of Numeric Variables", digits = 2)
+# Load required packages
+library(sf)
+library(dplyr)
+library(readr)
+library(stringr)
+
+# 1. Load the shapefile data
+DD_houses_rentals <- st_read("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/Housing prices shp/DDMH_STVSCHdaynight_25833.shp")
+
+# 2. Convert to regular dataframe (without geometry)
+housing_df <- st_drop_geometry(DD_houses_rentals)
+
+# 3. List of variables to EXCLUDE from analysis
+exclude_vars <- c(
+  "OBJECTID_1", "OBJECTID", "Join_Count", "TARGET_FID", "OBJECTID_2", 
+  "Join_Cou_1", "TARGET_F_1", "Join_Cou_2", "TARGET_F_2", 
+  "ScoutID", "esri_oid", "esri_oid_1", "SCHIsophp", 
+  "SCHIsopha", "Bemerkung", "SCHanight", "SCHfarbwer",  
+  "l_datum", "SCHfnight", "SCHpnight", "Typ"
+) # Add any others you want to exclude
+
+# 4. List of character variables that SHOULD BE NUMERIC (German format)
+german_num_vars <- c("Kaltmiete", "Wohnflaech", "Nutzflaech", "Zimmer", "Schlafzimm", "Etage ", "Etagenanza", "Baujahr", "Letzte_Mod ") # Add all relevant variables
+
+# 5. Convert German-formatted character variables to proper numeric
+for (var in german_num_vars) {
+  if (var %in% names(housing_df)) {
+    housing_df[[var]] <- housing_df[[var]] %>% 
+      str_replace("\\.", "") %>%    # Remove thousand separators
+      str_replace(",", ".") %>%     # Replace comma with decimal point
+      as.numeric()                  # Convert to numeric
+  }
+}
+
+# 6. Select only numeric variables (after conversion), excluding specified variables
+numeric_data <- housing_df %>%
+  select(-any_of(exclude_vars)) %>%
+  select(where(is.numeric))
+
+# 7. Calculate descriptive statistics
+desc_stats <- data.frame(
+  Variable = names(numeric_data),
+  N = sapply(numeric_data, function(x) sum(!is.na(x))),
+  Mean = sapply(numeric_data, function(x) round(mean(x, na.rm = TRUE), 3)),
+  St.Dev = sapply(numeric_data, function(x) round(sd(x, na.rm = TRUE), 3)),
+  Min = sapply(numeric_data, function(x) round(min(x, na.rm = TRUE), 3)),
+  Max = sapply(numeric_data, function(x) round(max(x, na.rm = TRUE), 3))
+)
+
+# 8. Print the results (sorted alphabetically by variable name)
+desc_stats <- desc_stats[order(desc_stats$Variable), ]
+print(desc_stats)
+
 
 ```
 
