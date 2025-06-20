@@ -1,0 +1,136 @@
+---
+title: "Clean_and_merge_data"
+author: "Jannis Dietze"
+date: "2025-06-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(dplyr)
+
+```
+
+## Load Data
+
+
+```{r }
+
+houses_no2 <- read.csv("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/data/housing_emission/NO2 2013 DDMH.csv", stringsAsFactors = FALSE)
+
+houses_pm10 <- read.csv("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/data/housing_emission/pm10 2013 DDMH.csv", stringsAsFactors = FALSE)
+
+apartments_no2 <- read.csv("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/data/housing_emission/NO2 2013 DDMW.csv", stringsAsFactors = FALSE)
+
+apartments_pm10 <- read.csv("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/data/housing_emission/pm10 2013 DDMW.csv", stringsAsFactors = FALSE)
+
+View(apartments_pm10)
+View(houses_pm10)
+```
+
+```{r merge}
+library(dplyr)
+library(tidyr)
+
+
+# 1. Clean conversion function
+convert_columns <- function(df) {
+  df %>%
+    mutate(
+      Kaltmiete = as.numeric(gsub(",", ".", Kaltmiete)),
+      Gaeste_WC = as.numeric(Gaeste_WC)
+    )
+}
+
+# 1. Clean and label each dataset (add pollutant columns for simplicity)
+houses_no2 <- convert_columns(houses_no2) %>%
+  mutate(type = 1, no2 = deskn1)
+
+houses_pm10 <- convert_columns(houses_pm10) %>%
+  mutate(type = 1, pm10 = deskn1)
+
+apartments_no2 <- convert_columns(apartments_no2) %>%
+  mutate(type = 0, no2 = deskn1)
+
+apartments_pm10 <- convert_columns(apartments_pm10) %>%
+  mutate(type = 0, pm10 = deskn1)
+
+# 2. Combine the pollutant columns for houses and apartments separately
+library(dplyr)
+
+# Helper to clean duplicated columns
+clean_join <- function(df1, df2) {
+  df <- full_join(df1, df2, by = "ScoutID")
+
+  # Coalesce duplicate columns (keep only one version)
+  common_cols <- intersect(names(df1), names(df2))
+  common_cols <- common_cols[common_cols != "ScoutID"]
+
+  for (col in common_cols) {
+    df[[col]] <- coalesce(df[[paste0(col, ".x")]], df[[paste0(col, ".y")]])
+    df[[paste0(col, ".x")]] <- NULL
+    df[[paste0(col, ".y")]] <- NULL
+  }
+
+  return(df)
+}
+
+# Join and clean
+houses <- clean_join(houses_no2, houses_pm10)
+apartments <- clean_join(apartments_no2, apartments_pm10)
+
+# Combine both
+final_data <- bind_rows(houses, apartments) %>%
+  distinct(ScoutID, .keep_all = TRUE)
+
+
+
+# View final result
+
+
+```
+
+
+
+
+##Clean merged Data
+```{r}
+
+# Define variables to keep
+keep_vars <- c(
+  "ScoutID", "Datum", "Adresse", "Postleitza", "Ort", "Kaltmiete", "WBS_erford", 
+  "Wohnflaech", "Zimmer", "Gaeste_WC", "Etagenanza", "BalkonTerr", "Keller", "Aufzug", 
+  "EBK", "Garten", "Baujahr", "Objektzust", "Qualitaet", "Heizungsar", 
+  "Nebenkoste", "Add_", "addrtype", "addrlocat", "Ortsname", "Typ", "type", "pm10", "no2" )
+
+# Subset the merged data to only those columns that exist
+merged_data <- final_data[ , intersect(keep_vars, names(final_data)) ]
+
+
+
+#add Kaltmiete per meter
+merged_data$Kaltmiete_per_meter <- merged_data$Kaltmiete / merged_data$Wohnflaech
+
+# View the result
+View(merged_data)
+
+merged_data <- merged_data %>%
+  filter(
+    !is.na(Kaltmiete_per_meter),
+    !is.infinite(Kaltmiete_per_meter),
+    Kaltmiete_per_meter > 2.5,
+    Kaltmiete_per_meter < 70,
+    !is.na(no2),
+    !is.na(pm10)
+  ) %>%
+   distinct(Adresse, Kaltmiete_per_meter, .keep_all = TRUE)
+View(merged_data)
+
+write.csv(merged_data, "merged_2013data.csv", row.names = FALSE)
+
+```
+
+
+
+
+
