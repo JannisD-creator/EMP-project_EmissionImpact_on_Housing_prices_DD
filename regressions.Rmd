@@ -1,0 +1,46 @@
+---
+title: "Regressions"
+author: "Jannis Dietze"
+date: "2025-06-17"
+output: html_document
+---
+```{r packages}
+
+install.packages("spatialreg")
+
+library(spatialreg)
+```
+
+
+
+
+
+```{r setup, include=FALSE}
+merged_data <- read.csv("~/spatial and environmental economic research/Project/EMP-project_EmissionImpact_on_Housing_prices_DD/data/merged_2013data.csv")
+
+
+```
+
+
+## Basic Model
+```{r simple regression }
+lmbase <- lm(Kaltmiete_per_meter ~ no2 + pm10 + Zimmer  + BalkonTerr + Keller + Aufzug + EBK + Garten + Barrierefr , data = merged_data)
+summary(lmbase)
+```
+## with PLZ fixed effects (FE)
+```{r}
+lm2 <- lm(Kaltmiete_per_meter ~ no2 + pm10 + Zimmer  + BalkonTerr + Keller + Aufzug + EBK + Garten + Barrierefr + as.factor(Postleitza), data = merged_data)
+summary(lm2)
+```
+## spatial lagged regression (SAR including PLZ FE)
+```{r extended regression}
+coords <- cbind(data_geo$lon, data_geo$lat) 
+knn <- knearneigh(coords, k = 5)
+nb <- knn2nb
+
+listw <- nb2listw(nb, style = "W")  # Row-standardized
+sar_model <- lagsarlm(Kaltmiete_per_meter ~ no2 + pm10 + Wohnflaech + Zimmer  + BalkonTerr + Keller + Aufzug + EBK + Garten + Barrierefr + as.factor(Postleitza), data = merged_data, listw = weights_matrix)
+
+
+```
+
